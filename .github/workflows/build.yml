@@ -1,0 +1,146 @@
+name: Build Android APK and Windows EXE
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Create Web Root and Move Files
+        run: |
+          mkdir -p www
+          cp index.html www/
+          if [ -d "assets" ]; then cp -r assets www/; fi
+
+      - name: Install Capacitor & Android Platform
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "2048" "com.game2048.app" --web-dir www
+          npx cap add android
+
+      - name: Apply App Icon
+        run: |
+          SRC_IMG=""
+          if [ -f "icon.png" ]; then SRC_IMG="icon.png"; elif [ -f "icon.ico" ]; then SRC_IMG="icon.ico"; fi
+          if [ -n "$SRC_IMG" ]; then
+            sudo apt-get update && sudo apt-get install -y imagemagick
+            convert "$SRC_IMG[0]" -resize 48x48   android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+            convert "$SRC_IMG[0]" -resize 48x48   android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
+            convert "$SRC_IMG[0]" -resize 72x72   android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+            convert "$SRC_IMG[0]" -resize 72x72   android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png
+            convert "$SRC_IMG[0]" -resize 96x96   android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+            convert "$SRC_IMG[0]" -resize 96x96   android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png
+            convert "$SRC_IMG[0]" -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+            convert "$SRC_IMG[0]" -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png
+            convert "$SRC_IMG[0]" -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+            convert "$SRC_IMG[0]" -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
+            convert "$SRC_IMG[0]" -resize 432x432 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+            cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png
+            cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png
+            cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png
+            cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png
+          fi
+
+      - name: Configure Fullscreen & Orientation (Portrait)
+        run: |
+          sed -i 's/<style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">/<style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">\n        <item name="android:windowFullscreen">true<\/item>\n        <item name="android:windowContentOverlay">@null<\/item>/' android/app/src/main/res/values/styles.xml
+          sed -i 's/android:name=".MainActivity"/android:name=".MainActivity" android:screenOrientation="sensorPortrait"/' android/app/src/main/AndroidManifest.xml
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2048-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Electron Wrapper
+        shell: bash
+        run: |
+          mkdir -p electron-app/src
+          cp index.html electron-app/src/
+          if [ -d "assets" ]; then cp -r assets electron-app/src/; fi
+          if [ -f "icon.ico" ]; then cp icon.ico electron-app/; fi
+          if [ -f "icon.png" ]; then cp icon.png electron-app/; fi
+          cd electron-app
+          cat << 'EOF' > main.js
+          const { app, BrowserWindow } = require('electron');
+          const path = require('path');
+          function createWindow() {
+            const win = new BrowserWindow({
+              width: 520, height: 750, resizable: true, autoHideMenuBar: true,
+              icon: path.join(__dirname, 'icon.png'),
+              webPreferences: { nodeIntegration: false, contextIsolation: true }
+            });
+            win.loadFile('src/index.html');
+          }
+          app.whenReady().then(createWindow);
+          app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+          EOF
+          cat << 'EOF' > package.json
+          {
+            "name": "game-2048", "version": "1.0.0", "main": "main.js",
+            "scripts": { "dist": "electron-builder --win portable" },
+            "devDependencies": { "electron": "^33.2.0", "electron-builder": "^25.1.8" },
+            "build": { "appId": "com.game2048.app", "productName": "2048", "win": { "target": "portable", "icon": "icon.png" } }
+          }
+          EOF
+          npm install
+
+      - name: Build Windows Executable
+        shell: bash
+        run: |
+          cd electron-app
+          npm run dist
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2048-Windows-Portable-EXE
+          path: electron-app/dist/*.exe
+
+# 4. روی **Commit changes...** در بالای صفحه کلیک کنید و ذخیره نمایید.
+
+# ---
+
+### مرحله ۴: دریافت خروجی‌ها
+
+# پس از ذخیره فایل، به تب **Actions** در بالای مخزن بروید:
+# - بیلد به صورت خودکار شروع می‌شود (حدود ۳ تا ۵ دقیقه طول می‌کشد).
+# - پس از سبز شدن تیک بیلد، وارد آن شوید و از بخش **Artifacts** در پایین صفحه، فایل‌های خروجی:
+#   1. **`2048-Android-APK`** (برای نصب روی گوشی)
+#   2. **`2048-Windows-Portable-EXE`** (نسخه پورتابل بدون نیاز به نصب برای ویندوز)
+#   را دانلود کنید.
