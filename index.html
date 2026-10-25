@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>بازی 2048</title>
+
+    <style>
+      @font-face {
+        font-family: 'IRANYekan';
+        font-style: normal;
+        font-weight: 400;
+        src: url('./assets/fonts/IRANYekanWebRegular.woff2') format('woff2'),
+             url('./assets/fonts/IRANYekanWebRegular.woff') format('woff');
+      }
+      @font-face {
+        font-family: 'IRANYekan';
+        font-style: normal;
+        font-weight: 700;
+        src: url('./assets/fonts/IRANYekanWebBold.woff2') format('woff2'),
+             url('./assets/fonts/IRANYekanWebBold.woff') format('woff');
+      }
+      @font-face {
+        font-family: 'IRANYekan';
+        font-style: normal;
+        font-weight: 800;
+        src: url('./assets/fonts/IRANYekanWebExtraBold.woff2') format('woff2'),
+             url('./assets/fonts/IRANYekanWebExtraBold.woff') format('woff');
+      }
+      @font-face {
+        font-family: 'IRANYekan';
+        font-style: normal;
+        font-weight: 900;
+        src: url('./assets/fonts/IRANYekanWebBlack.woff2') format('woff2'),
+             url('./assets/fonts/IRANYekanWebBlack.woff') format('woff');
+      }
+
+      :root {
+        --board-size: min(90vw, calc(100dvh - 220px), 420px);
+        --gap: calc(var(--board-size) * 0.028);
+        --cell-size: calc((var(--board-size) - (var(--gap) * 5)) / 4);
+      }
+
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        height: 100dvh;
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+        background-color: #faf8ef;
+        font-family: 'IRANYekan', -apple-system, BlinkMacSystemFont, sans-serif;
+        user-select: none;
+        -webkit-user-select: none;
+        overscroll-behavior: none;
+      }
+
+      .game-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        height: 100%;
+        height: 100dvh;
+        padding-top: calc(env(safe-area-inset-top, 0px) + clamp(22px, 4.8vh, 42px));
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(14px, 2.8vh, 26px));
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      .game-header {
+        width: var(--board-size);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .title {
+        font-size: clamp(28px, 7.5vw, 40px);
+        font-weight: 900;
+        color: #776e65;
+        line-height: 1;
+        letter-spacing: -1px;
+      }
+
+      .restart-button {
+        background: #8f7a66;
+        border-radius: 6px;
+        padding: 0 clamp(10px, 2.4vw, 14px);
+        height: clamp(34px, 5vh, 40px);
+        line-height: clamp(34px, 5vh, 40px);
+        color: #f9f6f2;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: clamp(12px, 2.8vw, 14px);
+        border: none;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s, transform 0.1s;
+      }
+
+      .restart-button:active {
+        transform: scale(0.97);
+      }
+
+      .scores-wrapper {
+        display: flex;
+        gap: 6px;
+      }
+
+      .score-container {
+        background: #bbada0;
+        padding: 3px clamp(6px, 1.8vw, 10px);
+        min-width: clamp(54px, 14vw, 68px);
+        border-radius: 6px;
+        font-weight: 700;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .score-title {
+        color: #eee4da;
+        font-size: clamp(9px, 2.3vw, 10.5px);
+        display: block;
+        line-height: 1.1;
+      }
+
+      .score-val {
+        color: #ffffff;
+        font-size: clamp(12px, 3.2vw, 15.5px);
+        font-weight: 800;
+        display: block;
+        line-height: 1.25;
+        white-space: nowrap;
+      }
+
+      .board-wrapper {
+        position: relative;
+        width: var(--board-size);
+        height: var(--board-size);
+        background-color: #bbada0;
+        border-radius: 8px;
+        padding: var(--gap);
+        direction: ltr;
+        flex-shrink: 0;
+        touch-action: none;
+        margin-top: auto;
+        margin-bottom: auto;
+      }
+
+      .grid-background {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        gap: var(--gap);
+        width: 100%;
+        height: 100%;
+        position: relative;
+        z-index: 1;
+      }
+
+      .cell-bg {
+        background-color: rgba(238, 228, 218, 0.35);
+        border-radius: 5px;
+        transition: background-color 0.2s;
+      }
+
+      .tile-container {
+        position: absolute;
+        inset: var(--gap);
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .tile {
+        position: absolute;
+        width: var(--cell-size);
+        height: var(--cell-size);
+        font-weight: 800;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: transform 120ms ease-in-out;
+        will-change: transform;
+        pointer-events: none;
+        cursor: default;
+      }
+
+      .tile-inner {
+        width: 100%;
+        height: 100%;
+        border-radius: 5px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: calc(var(--cell-size) * 0.44);
+        font-weight: 800;
+        transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+      }
+
+      .tile-new .tile-inner {
+        animation: appear 140ms ease-out backwards;
+      }
+
+      .tile-merged .tile-inner {
+        animation: pop 160ms ease-in-out;
+      }
+
+      @keyframes appear {
+        0% { opacity: 0; transform: scale(0); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+
+      @keyframes pop {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+      }
+
+      .tile-2 .tile-inner    { background: #eee4da; color: #776e65; }
+      .tile-4 .tile-inner    { background: #ede0c8; color: #776e65; }
+      .tile-8 .tile-inner    { background: #f2b179; color: #f9f6f2; }
+      .tile-16 .tile-inner   { background: #f59563; color: #f9f6f2; }
+      .tile-32 .tile-inner   { background: #f67c5f; color: #f9f6f2; }
+      .tile-64 .tile-inner   { background: #f65e3b; color: #f9f6f2; }
+      .tile-128 .tile-inner  { background: #edcf72; color: #f9f6f2; font-size: calc(var(--cell-size) * 0.38); }
+      .tile-256 .tile-inner  { background: #edcc61; color: #f9f6f2; font-size: calc(var(--cell-size) * 0.38); }
+      .tile-512 .tile-inner  { background: #edc850; color: #f9f6f2; font-size: calc(var(--cell-size) * 0.38); }
+      .tile-1024 .tile-inner { background: #edc53f; color: #f9f6f2; font-size: calc(var(--cell-size) * 0.30); }
+      .tile-2048 .tile-inner { background: #edc22e; color: #f9f6f2; font-size: calc(var(--cell-size) * 0.30); }
+
+      body.in-power-mode .tile-container {
+        pointer-events: auto;
+      }
+
+      body.in-power-mode .tile {
+        pointer-events: auto;
+        cursor: pointer;
+      }
+
+      .tile.selectable .tile-inner {
+        box-shadow: 0 0 0 3px #e67e22 !important;
+        transform: scale(0.95);
+      }
+
+      .tile.selected-first {
+        z-index: 30 !important;
+      }
+
+      .tile.selected-first .tile-inner {
+        box-shadow: 0 0 0 4px #2ecc71 !important;
+        transform: scale(1.08) !important;
+        filter: brightness(1.1);
+      }
+
+      .grid-background.active-teleport {
+        z-index: 25;
+      }
+
+      .cell-bg.selectable-cell {
+        background-color: rgba(46, 204, 113, 0.4) !important;
+        cursor: pointer;
+        pointer-events: auto;
+        transform: scale(0.92);
+        box-shadow: 0 0 0 2px #2ecc71;
+        animation: pulseCell 0.9s infinite alternate ease-in-out;
+      }
+
+      @keyframes pulseCell {
+        from { opacity: 0.55; transform: scale(0.90); }
+        to { opacity: 1; transform: scale(0.96); }
+      }
+
+      .powers-bar-wrapper {
+        position: relative;
+        width: var(--board-size);
+        direction: ltr;
+        flex-shrink: 0;
+      }
+
+      .powers-bar {
+        width: 100%;
+        background: #ede8dc;
+        border-radius: 14px;
+        padding: 7px 9px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .power-item {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .power-btn {
+        width: clamp(34px, 8.5vw, 46px);
+        height: clamp(34px, 8.5vw, 46px);
+        background: #d6ccbe;
+        border: none;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: 0.15s transform, 0.15s background;
+        color: #ffffff;
+        padding: 5px;
+      }
+
+      .power-btn svg {
+        width: 74%;
+        height: 74%;
+        fill: currentColor;
+      }
+
+      .power-btn.active {
+        background: #8f7a66;
+        transform: translateY(-2px);
+      }
+
+      .power-btn:disabled {
+        background: #e2dbce;
+        color: #f2eee8;
+        cursor: not-allowed;
+      }
+
+      .power-dashes {
+        display: flex;
+        gap: 3px;
+        height: 3px;
+      }
+
+      .dash {
+        width: clamp(8px, 2.2vw, 11px);
+        height: 3px;
+        border-radius: 2px;
+        background: #d0c7b8;
+      }
+
+      .dash.filled {
+        background: #8f7a66;
+      }
+
+      .power-tooltip {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        background: #47433f;
+        color: #ffffff;
+        border-radius: 8px;
+        padding: 6px 10px;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: 0.15s opacity;
+        z-index: 100;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+        font-family: inherit;
+        direction: rtl;
+        text-align: center;
+      }
+
+      .power-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: #47433f;
+      }
+
+      .power-item:hover .power-tooltip,
+      .power-item.show-tooltip .power-tooltip {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .tooltip-title {
+        font-size: 11px;
+        font-weight: 800;
+        margin-bottom: 2px;
+      }
+
+      .tooltip-title span {
+        font-weight: 400;
+        opacity: 0.85;
+        margin-right: 4px;
+        font-size: 10px;
+      }
+
+      .tooltip-sub {
+        font-size: 9.5px;
+        color: #d1cbc2;
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        backdrop-filter: blur(2px);
+      }
+
+      .modal-backdrop.show {
+        display: flex;
+      }
+
+      .modal-card {
+        background: #faf8ef;
+        width: min(85vw, 320px);
+        padding: 20px 18px;
+        border-radius: 14px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.22);
+        animation: modalPop 0.15s ease-out;
+        direction: rtl;
+      }
+
+      @keyframes modalPop {
+        from { transform: scale(0.85); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+
+      .modal-title {
+        font-size: 19px;
+        font-weight: 800;
+        color: #776e65;
+        margin: 0 0 8px 0;
+      }
+
+      .modal-text {
+        font-size: 13px;
+        color: #776e65;
+        margin: 0 0 16px 0;
+        line-height: 1.5;
+      }
+
+      .modal-btn-confirm {
+        width: 100%;
+        background: #8f7a66;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 13.5px;
+        font-weight: 700;
+        cursor: pointer;
+        margin-bottom: 8px;
+        font-family: inherit;
+      }
+
+      .modal-btn-cancel {
+        width: 100%;
+        background: transparent;
+        color: #776e65;
+        border: 2px solid #8f7a66;
+        border-radius: 8px;
+        padding: 8px;
+        font-size: 13.5px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="game-container">
+      
+      <div class="game-header">
+        <div class="title">2048</div>
+        <button class="restart-button" onclick="promptNewGame()">بازی جدید</button>
+        <div class="scores-wrapper">
+          <div class="score-container">
+            <span class="score-title">امتیاز</span>
+            <span class="score-val" id="score">0</span>
+          </div>
+          <div class="score-container">
+            <span class="score-title">بیشترین</span>
+            <span class="score-val" id="bestScore">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="board-wrapper" id="boardWrapper">
+        <div class="grid-background" id="gridBackground">
+          <div class="cell-bg" data-r="0" data-c="0"></div><div class="cell-bg" data-r="0" data-c="1"></div><div class="cell-bg" data-r="0" data-c="2"></div><div class="cell-bg" data-r="0" data-c="3"></div>
+          <div class="cell-bg" data-r="1" data-c="0"></div><div class="cell-bg" data-r="1" data-c="1"></div><div class="cell-bg" data-r="1" data-c="2"></div><div class="cell-bg" data-r="1" data-c="3"></div>
+          <div class="cell-bg" data-r="2" data-c="0"></div><div class="cell-bg" data-r="2" data-c="1"></div><div class="cell-bg" data-r="2" data-c="2"></div><div class="cell-bg" data-r="2" data-c="3"></div>
+          <div class="cell-bg" data-r="3" data-c="0"></div><div class="cell-bg" data-r="3" data-c="1"></div><div class="cell-bg" data-r="3" data-c="2"></div><div class="cell-bg" data-r="3" data-c="3"></div>
+        </div>
+        <div class="tile-container" id="tileContainer"></div>
+      </div>
+
+      <div class="powers-bar-wrapper">
+        <div class="powers-bar">
+          
+          <div class="power-item" id="p-undo">
+            <button class="power-btn" onclick="useUndo()" aria-label="لغو حرکت">
+              <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C23.72 11.23 19.5 8 12.5 8z"/></svg>
+            </button>
+            <div class="power-dashes" id="dash-undo">
+              <span class="dash filled"></span><span class="dash filled"></span>
+            </div>
+            <div class="power-tooltip">
+              <div class="tooltip-title">لغو حرکت <span id="tt-undo-count">۲ فرصت باقی‌مانده</span></div>
+              <div class="tooltip-sub">ساخت کاشی ۱۲۸ برای دریافت شانس مجدد</div>
+            </div>
+          </div>
+
+          <div class="power-item" id="p-teleport">
+            <button class="power-btn" onclick="startPower('teleport')" aria-label="انتقال کاشی">
+              <svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+            </button>
+            <div class="power-dashes" id="dash-teleport">
+              <span class="dash filled"></span><span class="dash"></span>
+            </div>
+            <div class="power-tooltip">
+              <div class="tooltip-title">انتقال کاشی <span id="tt-teleport-count">۱ فرصت باقی‌مانده</span></div>
+              <div class="tooltip-sub">ساخت کاشی ۲۵۶ برای دریافت شانس مجدد</div>
+            </div>
+          </div>
+
+          <div class="power-item" id="p-swap">
+            <button class="power-btn" onclick="startPower('swap')" aria-label="جابجایی دو کاشی">
+              <svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+            </button>
+            <div class="power-dashes" id="dash-swap">
+              <span class="dash filled"></span><span class="dash"></span>
+            </div>
+            <div class="power-tooltip">
+              <div class="tooltip-title">جابجایی دو کاشی <span id="tt-swap-count">۱ فرصت باقی‌مانده</span></div>
+              <div class="tooltip-sub">ساخت کاشی ۲۵۶ برای دریافت شانس مجدد</div>
+            </div>
+          </div>
+
+          <div class="power-item" id="p-rotate">
+            <button class="power-btn" onclick="useRotate()" aria-label="چرخش حلقه بیرونی">
+              <svg viewBox="0 0 24 24"><path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/></svg>
+            </button>
+            <div class="power-dashes" id="dash-rotate">
+              <span class="dash filled"></span><span class="dash"></span>
+            </div>
+            <div class="power-tooltip">
+              <div class="tooltip-title">چرخش حلقه بیرونی <span id="tt-rotate-count">۱ فرصت باقی‌مانده</span></div>
+              <div class="tooltip-sub">ساخت کاشی ۲۵۶ برای دریافت شانس مجدد</div>
+            </div>
+          </div>
+
+          <div class="power-item" id="p-deleteNum">
+            <button class="power-btn" onclick="startPower('deleteNum')" aria-label="حذف عدد مشابه">
+              <svg viewBox="0 0 24 24"><path d="M4 11h5V5H4v6zm0 7h5v-5H4v5zm7 0h5v-5h-5v5zm7 0h4v-5h-4v5zm-7-7h5V5h-5v6zm7-6v6h4V5h-4z"/></svg>
+            </button>
+            <div class="power-dashes" id="dash-deleteNum">
+              <span class="dash filled"></span><span class="dash"></span>
+            </div>
+            <div class="power-tooltip">
+              <div class="tooltip-title">حذف کاشی‌های هم‌عدد <span id="tt-deleteNum-count">۱ فرصت باقی‌مانده</span></div>
+              <div class="tooltip-sub">ساخت کاشی ۵۱۲ برای دریافت شانس مجدد</div>
+            </div>
+          </div>
+
+          <div class="power-item" id="p-bomb">
+            <button class="power-btn" onclick="startPower('bomb')" aria-label="بمب">
+              <svg viewBox="0 0 24 24"><path d="M12 2c-.55 0-1 .45-1 1v1.07C7.61 4.56 5 7.48 5 11c0 3.87 3.13 7 7 7s7-3.13 7-7c0-3.52-2.61-6.44-6-6.93V3c0-.55-.45-1-1-1zm6.93 1.34l-1.42 1.42 1.41 1.41 1.42-1.41-1.41-1.42zm2.12 4.95h-2v2h2v-2zM4.95 4.76L3.54 6.17l1.41 1.41 1.42-1.41-1.42-1.41z"/></svg>
+            </button>
+            <div class="power-dashes" id="dash-bomb">
+              <span class="dash filled"></span><span class="dash"></span>
+            </div>
+            <div class="power-tooltip">
+              <div class="tooltip-title">بمب انفجاری <span id="tt-bomb-count">۱ فرصت باقی‌مانده</span></div>
+              <div class="tooltip-sub">ساخت کاشی ۵۱۲ برای دریافت شانس مجدد</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- مودال بازی جدید -->
+    <div class="modal-backdrop" id="newGameModal">
+      <div class="modal-card">
+        <h2 class="modal-title">بازی جدید</h2>
+        <p class="modal-text">آیا مطمئن هستید که می‌خواهید یک بازی جدید شروع کنید؟<br/>تمام پیشرفت فعلی شما از بین خواهد رفت.</p>
+        <button class="modal-btn-confirm" onclick="confirmNewGame()">شروع بازی جدید</button>
+        <button class="modal-btn-cancel" onclick="closeModal()">انصراف</button>
+      </div>
+    </div>
+
+    <script>
+      const GRID_SIZE = 4;
+      let grid = [];
+      let score = 0;
+      let bestScore = parseInt(localStorage.getItem('bestScore_2048')) || 0;
+      let tileIdCounter = 0;
+      let isMoving = false;
+      let historyState = null;
+
+      const initialPowers = {
+        undo: 2,
+        teleport: 1,
+        swap: 1,
+        rotate: 1,
+        deleteNum: 1,
+        bomb: 1
+      };
+
+      let powers = { ...initialPowers };
+      let activePower = null;
+      let selectedTile = null;
+
+      document.getElementById('bestScore').innerText = bestScore;
+
+      function initGrid() {
+        grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
+      }
+
+      function getPositionStyle(row, col) {
+        return `translate(calc(${col} * (var(--cell-size) + var(--gap))), calc(${row} * (var(--cell-size) + var(--gap))))`;
+      }
+
+      function createTileElement(value, r, c, isNew = false) {
+        const id = ++tileIdCounter;
+        const tileElem = document.createElement('div');
+        tileElem.className = `tile tile-${value}` + (isNew ? ' tile-new' : '');
+        tileElem.id = `tile-${id}`;
+        tileElem.style.transform = getPositionStyle(r, c);
+
+        const inner = document.createElement('div');
+        inner.className = 'tile-inner';
+        inner.innerText = value;
+        tileElem.appendChild(inner);
+
+        const tileObj = { id, value, elem: tileElem, r, c };
+
+        tileElem.addEventListener('click', (e) => {
+          if (!activePower) return;
+          e.stopPropagation();
+          onTileClick(tileObj);
+        });
+
+        document.getElementById('tileContainer').appendChild(tileElem);
+        return tileObj;
+      }
+
+      function spawnTile() {
+        const emptyCells = [];
+        for (let r = 0; r < GRID_SIZE; r++) {
+          for (let c = 0; c < GRID_SIZE; c++) {
+            if (!grid[r][c]) emptyCells.push({ r, c });
+          }
+        }
+        if (emptyCells.length === 0) return;
+
+        const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        const value = Math.random() < 0.9 ? 2 : 4;
+        grid[r][c] = createTileElement(value, r, c, true);
+      }
+
+      function saveHistory() {
+        historyState = {
+          score: score,
+          grid: grid.map(row => row.map(cell => cell ? { value: cell.value } : null))
+        };
+      }
+
+      function saveToLocalStorage() {
+        const state = {
+          score: score,
+          grid: grid.map(row => row.map(cell => cell ? cell.value : null)),
+          powers: { ...powers },
+          historyState: historyState
+        };
+        localStorage.setItem('game2048_saved_state', JSON.stringify(state));
+        localStorage.setItem('bestScore_2048', bestScore);
+      }
+
+      function loadFromLocalStorage() {
+        const saved = localStorage.getItem('game2048_saved_state');
+        if (!saved) return false;
+
+        try {
+          const data = JSON.parse(saved);
+          if (!data || !data.grid) return false;
+
+          document.getElementById('tileContainer').innerHTML = '';
+          initGrid();
+          score = data.score || 0;
+          document.getElementById('score').innerText = score;
+
+          if (data.powers) {
+            for (let k in initialPowers) {
+              if (typeof data.powers[k] === 'number') {
+                powers[k] = data.powers[k];
+              } else {
+                powers[k] = initialPowers[k];
+              }
+            }
+          } else {
+            powers = { ...initialPowers };
+          }
+          
+          historyState = data.historyState || null;
+
+          let hasTiles = false;
+          for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+              const val = data.grid[r][c];
+              if (val) {
+                grid[r][c] = createTileElement(val, r, c, false);
+                hasTiles = true;
+              }
+            }
+          }
+
+          updatePowerUI();
+          return hasTiles;
+        } catch (e) {
+          console.error('Error loading game state:', e);
+          return false;
+        }
+      }
+
+      function checkPowerRewards(value) {
+        if (value === 128) powers.undo = Math.min(2, powers.undo + 1);
+        if (value === 256) {
+          powers.teleport = Math.min(2, powers.teleport + 1);
+          powers.swap = Math.min(2, powers.swap + 1);
+          powers.rotate = Math.min(2, powers.rotate + 1);
+        }
+        if (value === 512) {
+          powers.deleteNum = Math.min(2, powers.deleteNum + 1);
+          powers.bomb = Math.min(2, powers.bomb + 1);
+        }
+        updatePowerUI();
+      }
+
+      function move(direction) {
+        if (isMoving || activePower) return;
+
+        const vectors = {
+          up: { r: -1, c: 0 },
+          down: { r: 1, c: 0 },
+          left: { r: 0, c: -1 },
+          right: { r: 0, c: 1 }
+        };
+        const vec = vectors[direction];
+
+        const rowIndices = [0, 1, 2, 3];
+        const colIndices = [0, 1, 2, 3];
+        if (vec.r === 1) rowIndices.reverse();
+        if (vec.c === 1) colIndices.reverse();
+
+        let moved = false;
+        const tempHistory = {
+          score: score,
+          grid: grid.map(row => row.map(cell => cell ? { value: cell.value } : null))
+        };
+
+        const newGrid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
+        const mergedPositions = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(false));
+        const tilesToRemove = [];
+        const tilesToSpawnMerged = [];
+
+        rowIndices.forEach(r => {
+          colIndices.forEach(c => {
+            const tile = grid[r][c];
+            if (!tile) return;
+
+            let targetR = r;
+            let targetC = c;
+
+            while (true) {
+              const nextR = targetR + vec.r;
+              const nextC = targetC + vec.c;
+
+              if (nextR < 0 || nextR >= GRID_SIZE || nextC < 0 || nextC >= GRID_SIZE) break;
+
+              if (!newGrid[nextR][nextC]) {
+                targetR = nextR;
+                targetC = nextC;
+              } else if (
+                newGrid[nextR][nextC].value === tile.value &&
+                !mergedPositions[nextR][nextC]
+              ) {
+                targetR = nextR;
+                targetC = nextC;
+                break;
+              } else {
+                break;
+              }
+            }
+
+            const existingTile = newGrid[targetR][targetC];
+
+            if (existingTile && existingTile.value === tile.value && !mergedPositions[targetR][targetC]) {
+              moved = true;
+              tile.elem.style.zIndex = '9';
+              tile.elem.style.transform = getPositionStyle(targetR, targetC);
+              tilesToRemove.push(tile.elem);
+              tilesToRemove.push(existingTile.elem);
+
+              const newValue = tile.value * 2;
+              score += newValue;
+              document.getElementById('score').innerText = score;
+              if (score > bestScore) {
+                bestScore = score;
+                document.getElementById('bestScore').innerText = bestScore;
+                localStorage.setItem('bestScore_2048', bestScore);
+              }
+
+              checkPowerRewards(newValue);
+
+              mergedPositions[targetR][targetC] = true;
+              newGrid[targetR][targetC] = { value: newValue, r: targetR, c: targetC };
+              tilesToSpawnMerged.push({ value: newValue, r: targetR, c: targetC });
+            } else {
+              if (targetR !== r || targetC !== c) {
+                moved = true;
+              }
+              tile.elem.style.transform = getPositionStyle(targetR, targetC);
+              tile.r = targetR;
+              tile.c = targetC;
+              newGrid[targetR][targetC] = tile;
+            }
+          });
+        });
+
+        if (moved) {
+          historyState = tempHistory;
+          isMoving = true;
+          grid = newGrid;
+
+          setTimeout(() => {
+            tilesToRemove.forEach(el => el && el.parentNode && el.parentNode.removeChild(el));
+
+            tilesToSpawnMerged.forEach(item => {
+              const mergedTile = createTileElement(item.value, item.r, item.c, false);
+              mergedTile.elem.classList.add('tile-merged');
+              grid[item.r][item.c] = mergedTile;
+            });
+
+            spawnTile();
+            isMoving = false;
+            updatePowerUI();
+            saveToLocalStorage();
+          }, 125);
+        }
+      }
+
+      function updatePowerUI() {
+        const persianDigits = ['۰', '۱', '۲'];
+        for (const [key, val] of Object.entries(powers)) {
+          const item = document.getElementById(`p-${key}`);
+          if (!item) continue;
+          const btn = item.querySelector('.power-btn');
+          const countSpan = document.getElementById(`tt-${key}-count`);
+          const dashes = document.querySelectorAll(`#dash-${key} .dash`);
+
+          if (key === 'undo') {
+            btn.disabled = val <= 0 || !historyState;
+          } else {
+            btn.disabled = val <= 0;
+          }
+
+          if (countSpan) {
+            countSpan.innerText = `${persianDigits[val] || val} فرصت باقی‌مانده`;
+          }
+
+          dashes.forEach((d, idx) => {
+            if (idx < val) d.classList.add('filled');
+            else d.classList.remove('filled');
+          });
+        }
+      }
+
+      function startPower(type) {
+        if (powers[type] <= 0) return;
+        if (activePower === type) {
+          cancelPower();
+          return;
+        }
+        cancelPower();
+        activePower = type;
+        document.body.classList.add('in-power-mode');
+        document.getElementById(`p-${type}`).querySelector('.power-btn').classList.add('active');
+
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 4; c++) {
+            if (grid[r][c]) {
+              grid[r][c].elem.classList.add('selectable');
+            }
+          }
+        }
+      }
+
+      function highlightEmptyCellsForTeleport() {
+        const bg = document.getElementById('gridBackground');
+        bg.classList.add('active-teleport');
+
+        document.querySelectorAll('.cell-bg').forEach(cell => {
+          const cr = parseInt(cell.getAttribute('data-r'));
+          const cc = parseInt(cell.getAttribute('data-c'));
+          
+          cell.onclick = null;
+
+          if (!grid[cr][cc]) {
+            cell.classList.add('selectable-cell');
+            cell.onclick = (e) => {
+              e.stopPropagation();
+              onEmptyCellClick(cr, cc);
+            };
+          } else {
+            cell.classList.remove('selectable-cell');
+          }
+        });
+      }
+
+      function cancelPower() {
+        activePower = null;
+        selectedTile = null;
+        document.body.classList.remove('in-power-mode');
+        document.getElementById('gridBackground').classList.remove('active-teleport');
+        document.querySelectorAll('.power-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tile').forEach(t => {
+          t.classList.remove('selectable');
+          t.classList.remove('selected-first');
+        });
+        document.querySelectorAll('.cell-bg').forEach(c => {
+          c.classList.remove('selectable-cell');
+          c.onclick = null;
+        });
+      }
+
+      function onTileClick(tile) {
+        if (!activePower) return;
+
+        const r = tile.r;
+        const c = tile.c;
+
+        if (activePower === 'deleteNum') {
+          saveHistory();
+          const targetVal = tile.value;
+          for (let row = 0; row < 4; row++) {
+            for (let col = 0; col < 4; col++) {
+              if (grid[row][col] && grid[row][col].value === targetVal) {
+                grid[row][col].elem.remove();
+                grid[row][col] = null;
+              }
+            }
+          }
+          powers.deleteNum--;
+          finishPower();
+        } 
+        else if (activePower === 'bomb') {
+          saveHistory();
+          for (let ro = Math.max(0, r - 1); ro <= Math.min(3, r + 1); ro++) {
+            for (let co = Math.max(0, c - 1); co <= Math.min(3, c + 1); co++) {
+              if (grid[ro][co]) {
+                grid[ro][co].elem.remove();
+                grid[ro][co] = null;
+              }
+            }
+          }
+          powers.bomb--;
+          finishPower();
+        }
+        else if (activePower === 'swap') {
+          if (!selectedTile) {
+            selectedTile = tile;
+            tile.elem.classList.add('selected-first');
+          } else if (selectedTile.id === tile.id) {
+            selectedTile.elem.classList.remove('selected-first');
+            selectedTile = null;
+          } else {
+            saveHistory();
+            const tileA = selectedTile;
+            const tileB = tile;
+
+            const rA = tileA.r, cA = tileA.c;
+            const rB = tileB.r, cB = tileB.c;
+
+            grid[rA][cA] = tileB;
+            grid[rB][cB] = tileA;
+
+            tileA.r = rB; tileA.c = cB;
+            tileB.r = rA; tileB.c = cA;
+
+            tileA.elem.style.transform = getPositionStyle(rB, cB);
+            tileB.elem.style.transform = getPositionStyle(rA, cA);
+
+            powers.swap--;
+            finishPower();
+          }
+        }
+        else if (activePower === 'teleport') {
+          if (selectedTile && selectedTile.id === tile.id) {
+            selectedTile.elem.classList.remove('selected-first');
+            selectedTile = null;
+            document.getElementById('gridBackground').classList.remove('active-teleport');
+            document.querySelectorAll('.cell-bg').forEach(c => {
+              c.classList.remove('selectable-cell');
+              c.onclick = null;
+            });
+          } else {
+            if (selectedTile) selectedTile.elem.classList.remove('selected-first');
+            selectedTile = tile;
+            tile.elem.classList.add('selected-first');
+            highlightEmptyCellsForTeleport();
+          }
+        }
+      }
+
+      function onEmptyCellClick(targetR, targetC) {
+        if (activePower !== 'teleport' || !selectedTile) return;
+
+        saveHistory();
+        const tile = selectedTile;
+        const oldR = tile.r;
+        const oldC = tile.c;
+
+        grid[oldR][oldC] = null;
+        grid[targetR][targetC] = tile;
+
+        tile.r = targetR;
+        tile.c = targetC;
+        tile.elem.style.transform = getPositionStyle(targetR, targetC);
+
+        powers.teleport--;
+        finishPower();
+      }
+
+      function finishPower() {
+        cancelPower();
+        updatePowerUI();
+        saveToLocalStorage();
+      }
+
+      function useUndo() {
+        if (powers.undo <= 0 || !historyState) return;
+        powers.undo--;
+
+        document.getElementById('tileContainer').innerHTML = '';
+        initGrid();
+        score = historyState.score;
+        document.getElementById('score').innerText = score;
+
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 4; c++) {
+            const item = historyState.grid[r][c];
+            if (item) {
+              grid[r][c] = createTileElement(item.value, r, c, false);
+            }
+          }
+        }
+        historyState = null;
+        updatePowerUI();
+        saveToLocalStorage();
+      }
+
+      function useRotate() {
+        if (powers.rotate <= 0) return;
+        saveHistory();
+        powers.rotate--;
+
+        const ringCoords = [
+          [0,0], [0,1], [0,2], [0,3],
+          [1,3], [2,3], [3,3],
+          [3,2], [3,1], [3,0],
+          [2,0], [1,0]
+        ];
+
+        const oldRingTiles = ringCoords.map(([r, c]) => grid[r][c]);
+        const shift = 3;
+        const newRingTiles = Array(12);
+
+        for (let i = 0; i < 12; i++) {
+          newRingTiles[(i + shift) % 12] = oldRingTiles[i];
+        }
+
+        for (let i = 0; i < 12; i++) {
+          const [r, c] = ringCoords[i];
+          const tile = newRingTiles[i];
+          grid[r][c] = tile;
+          if (tile) {
+            tile.r = r;
+            tile.c = c;
+            tile.elem.style.transform = getPositionStyle(r, c);
+          }
+        }
+
+        updatePowerUI();
+        saveToLocalStorage();
+      }
+
+      function promptNewGame() {
+        document.getElementById('newGameModal').classList.add('show');
+      }
+
+      function closeModal() {
+        document.getElementById('newGameModal').classList.remove('show');
+      }
+
+      function confirmNewGame() {
+        closeModal();
+        resetGame();
+      }
+
+      function resetGame() {
+        cancelPower();
+        document.getElementById('tileContainer').innerHTML = '';
+        score = 0;
+        historyState = null;
+        document.getElementById('score').innerText = '0';
+        
+        powers = { ...initialPowers };
+        
+        updatePowerUI();
+        initGrid();
+        spawnTile();
+        spawnTile();
+        saveToLocalStorage();
+      }
+
+      document.addEventListener('keydown', (e) => {
+        switch (e.key) {
+          case 'ArrowUp': move('up'); break;
+          case 'ArrowDown': move('down'); break;
+          case 'ArrowLeft': move('left'); break;
+          case 'ArrowRight': move('right'); break;
+        }
+      });
+
+      let startX = 0, startY = 0;
+      const board = document.getElementById('boardWrapper');
+
+      board.addEventListener('touchstart', (e) => {
+        if (activePower) return;
+        if (e.touches.length === 1) {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+
+      board.addEventListener('touchend', (e) => {
+        if (activePower) return;
+        if (e.changedTouches.length === 1) {
+          const dx = e.changedTouches[0].clientX - startX;
+          const dy = e.changedTouches[0].clientY - startY;
+          if (Math.abs(dx) < 25 && Math.abs(dy) < 25) return;
+
+          if (Math.abs(dx) > Math.abs(dy)) {
+            move(dx > 0 ? 'right' : 'left');
+          } else {
+            move(dy > 0 ? 'down' : 'up');
+          }
+        }
+      }, { passive: true });
+
+      document.addEventListener('click', (e) => {
+        if (!activePower) return;
+        if (!e.target.closest('#boardWrapper') && !e.target.closest('.powers-bar-wrapper')) {
+          cancelPower();
+        }
+      });
+
+      window.onload = () => {
+        if (!loadFromLocalStorage()) {
+          resetGame();
+        }
+      };
+    </script>
+  </body>
+</html>
